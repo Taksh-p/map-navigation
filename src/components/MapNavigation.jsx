@@ -154,6 +154,7 @@ import { Button, IconButton, Box, Paper, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import NavigationIcon from "@mui/icons-material/Navigation";
 import axios from "axios";
+import MapComponent from "./MapComponent";
 
 const MapNavigation = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -164,7 +165,7 @@ const MapNavigation = () => {
     const [selectedDistrict, setSelectedDistrict] = useState(null);
     const [selectedTaluka, setSelectedTaluka] = useState(null);
 
-    const BASE_URL = "http://localhost:8080"
+    const BASE_URL = "http://localhost:8080/api/map"
 
     useEffect(() => {
         if (isOpen) {
@@ -174,8 +175,10 @@ const MapNavigation = () => {
 
     const fetchStates = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/api/getStates`);
-            setStates(response.data.map((state) => ({ value: state.id, label: state.name })));
+            const response = await axios.get(`${BASE_URL}/getStates`);
+            setStates(response.data.map((state) => ({ 
+                value: state.stcode11, label: state.stname 
+            })));
         } catch (error) {
             console.error("Error fetching states:", error);
         }
@@ -183,17 +186,17 @@ const MapNavigation = () => {
 
     const fetchDistricts = async (stateId) => {
         try {
-            const response = await axios.get(`${BASE_URL}/api/getDistricts/${stateId}`);
-            setDistricts(response.data.map((district) => ({ value: district.id, label: district.name })));
+            const response = await axios.get(`${BASE_URL}/district/${stateId}`);
+            setDistricts(response.data.map((district) => ({ value: district.dtcode11, label: district.name11 })));
         } catch (error) {
             console.error("Error fetching districts:", error);
         }
     };
 
-    const fetchTalukas = async (districtId) => {
+    const fetchTalukas = async (districtName) => {
         try {
-            const response = await axios.get(`${BASE_URL}/api/getTalukas/${districtId}`);
-            setTalukas(response.data.map((taluka) => ({ value: taluka.id, label: taluka.name })));
+            const response = await axios.get(`${BASE_URL}/taluks/${districtName}`);
+            setTalukas(response.data.map((taluka) => ({ value: taluka.gid, label: taluka.name11 })));
         } catch (error) {
             console.error("Error fetching talukas:", error);
         }
@@ -215,97 +218,133 @@ const MapNavigation = () => {
         setSelectedTaluka(null);
         setTalukas([]);
         if (selectedOption) {
-            fetchTalukas(selectedOption.value);
+            fetchTalukas(selectedOption.label);
         }
     };
 
+    const customStyle = {
+        control: (provided) => ({
+            ...provided,
+            borderColor: '#ccc',
+            boxShadow: 'none',
+            '&:hover': {
+                borderColor: '#aaa'
+            }
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            color: state.isSelected ? 'white': 'black',
+            backgroundColor: state.isSelected ? '#007bff': 'white',
+            fontSize: '13px',
+            '&:hover': {
+                backgroundColor: '#007bff',
+                color: 'white'
+            }
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: 'black',
+            fontSize: '10px'
+        }),
+    }
+
     return (
-        <Box sx={{ position: "relative", p: 2 }}>
-            {/* Button with Icon */}
-            <Button
-                variant="contained"
-                color="primary"
-                startIcon={<NavigationIcon />}
-                onClick={() => setIsOpen(!isOpen)}
-                sx={{ position: "absolute", top: 10, right: 10 }}
-            >
-                Open Form
-            </Button>
+        <div>
 
-            {isOpen && (
-                <Paper
-                    elevation={4}
-                    sx={{
-                        position: "absolute",
-                        top: 60,
-                        right: 10,
-                        width: 320,
-                        p: 3,
-                        borderRadius: 2,
-                    }}
-                >
-                    {/* Close Icon */}
-                    <IconButton
-                        onClick={() => setIsOpen(false)}
-                        sx={{
-                            position: "absolute",
-                            top: 10,
-                            right: 10,
-                        }}
-                    >
-                        <CloseIcon />
-                    </IconButton>
+            <MapComponent 
+                selectedState={selectedState}
+                selectedDistrict={selectedDistrict}
+                selectedTaluka={selectedTaluka}
+            />
 
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                        Select Location
-                    </Typography>
+            <Box sx={{ position: "absolute", top: 20, right: 20, p: 2 }}>
+           
+           <Button
+               variant="contained"
+               color="primary"
+               startIcon={<NavigationIcon />}
+               onClick={() => setIsOpen(!isOpen)}
+               sx={{ position: "absolute", top: 10, right: 10 }}
+           >
+               Navigation
+           </Button>
 
-                    {/* State Dropdown */}
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                            State:
-                        </Typography>
-                        <Select
-                            options={states}
-                            value={selectedState}
-                            onChange={handleStateChange}
-                            placeholder="Select State"
-                            isClearable
-                        />
-                    </Box>
+           {isOpen && (
+               <Paper
+                   elevation={4}
+                   sx={{
+                       position: "absolute",
+                       top: 60,
+                       right: 10,
+                       width: 320,
+                       p: 3,
+                       borderRadius: 2,
+                   }}
+               >
+                 
+                   <IconButton
+                       onClick={() => setIsOpen(false)}
+                       sx={{
+                           position: "absolute",
+                           top: 10,
+                           right: 10,
+                       }}
+                   >
+                       <CloseIcon />
+                   </IconButton>
 
-                    {/* District Dropdown */}
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                            District:
-                        </Typography>
-                        <Select
-                            options={districts}
-                            value={selectedDistrict}
-                            onChange={handleDistrictChange}
-                            placeholder="Select District"
-                            isDisabled={!selectedState}
-                            isClearable
-                        />
-                    </Box>
+                   <Typography variant="h6" sx={{ mb: 2 }}>
+                       Select Location
+                   </Typography>
 
-                    {/* Taluka Dropdown */}
-                    <Box>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                            Taluka:
-                        </Typography>
-                        <Select
-                            options={talukas}
-                            value={selectedTaluka}
-                            onChange={(selectedOption) => setSelectedTaluka(selectedOption)}
-                            placeholder="Select Taluka"
-                            isDisabled={!selectedDistrict}
-                            isClearable
-                        />
-                    </Box>
-                </Paper>
-            )}
-        </Box>
+                   {/* State Dropdown */}
+                   <Box sx={{ mb: 2 }}>
+                       <Typography variant="body2" sx={{ mb: 1 }}>
+                           State:
+                       </Typography>
+                       <Select
+                           options={states}
+                           value={selectedState}
+                           onChange={handleStateChange}
+                           placeholder="Select State"
+                           isClearable
+                       />
+                   </Box>
+
+                   {/* District Dropdown */}
+                   <Box sx={{ mb: 2 }}>
+                       <Typography variant="body2" sx={{ mb: 1 }}>
+                           District:
+                       </Typography>
+                       <Select
+                           options={districts}
+                           value={selectedDistrict}
+                           onChange={handleDistrictChange}
+                           placeholder="Select District"
+                           isDisabled={!selectedState}
+                           isClearable
+                       />
+                   </Box>
+
+                   {/* Taluka Dropdown */}
+                   <Box>
+                       <Typography variant="body2" sx={{ mb: 1 }}>
+                           Taluka:
+                       </Typography>
+                       <Select
+                           options={talukas}
+                           value={selectedTaluka}
+                           onChange={(selectedOption) => setSelectedTaluka(selectedOption)}
+                           placeholder="Select Taluka"
+                           isDisabled={!selectedDistrict}
+                           isClearable
+                       />
+                   </Box>
+               </Paper>
+           )}
+       </Box>
+        </div>
+       
     );
 };
 

@@ -1,0 +1,87 @@
+const updateTheMap = async (layerName, filterFieldName, filterValue) => {
+    const layer = new TileLayer({
+        source: new TileWMS({
+            url: 'http://localhost:8080/geoserver/cite/wms',
+            params: {
+                LAYERS: layerName,
+                TILED: true,
+                CQL_FILTER: filterValue ? `${filterFieldName} = '${filterValue}'` : undefined,
+            },
+            serverType: 'geoserver',
+            crossOrigin: 'anonymous',
+        }),
+    });
+
+    // Fetch extent dynamically
+    if (filterValue) {
+        const extentUrl = `http://localhost:8080/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=${layerName}&CQL_FILTER=${filterFieldName}='${filterValue}'&outputFormat=application/json`;
+        try {
+            const response = await fetch(extentUrl);
+            const data = await response.json();
+            if (data.features.length > 0) {
+                const extent = data.features[0].bbox; // Bounding box: [minX, minY, maxX, maxY]
+                if (extent) {
+                    mapRef.current.getView().fit(extent, { duration: 1000, maxZoom: 10 }); // Adjust maxZoom as needed
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching extent:", error);
+        }
+    }
+
+    return layer;
+};
+
+useEffect(() => {
+    if (!mapRef.current) {
+        mapRef.current = new Map({
+            target: 'map',
+            layers: [
+                new TileLayer({
+                    source: new TileWMS({
+                        url: 'http://localhost:8080/geoserver/cite/wms',
+                        params: { LAYERS: 'india_boundary', TILED: true },
+                        serverType: 'geoserver',
+                        crossOrigin: 'anonymous',
+                    }),
+                }),
+            ],
+            view: new View({
+                center: fromLonLat([78.9629, 20.5937]), // India center
+                zoom: 4,
+            }),
+        });
+    }
+
+    // Clear existing layers except base layer
+    const map = mapRef.current;
+    const baseLayer = map.getLayers().item(0);
+    map.getLayers().clear();
+    map.addLayer(baseLayer);
+
+    // Add and zoom to new layers
+    const updateMap = async () => {
+        const newLayers = [];
+        if (selectedState && !selectedDistrict && !selectedTaluka) {
+            newLayers.push(await updateTheMap('state_boundry_21_03_2023', 'stcode11', selectedState.value));
+        }
+        if (selectedState && selectedDistrict && !selectedTaluka) {
+            newLayers.push(await updateTheMap('district_boundry_21_03_2023', 'dtcode11', selectedDistrict.value));
+        }
+        if (selectedState && selectedDistrict && selectedTaluka) {
+            newLayers.push(await updateTheMap('taluka_boundry_21_03_2023', 'name11', selectedTaluka.label));
+        }
+
+        newLayers.forEach((layer) => map.addLayer(layer));
+        layersRef.current = newLayers;
+    };
+
+    updateMap();
+
+    return () => {
+        layersRef.current.forEach((layer) => {
+            map.removeLayer(layer);
+        });
+        layersRef.current = [];
+    };
+}, [selectedState, selectedDistrict, selectedTaluka]);
